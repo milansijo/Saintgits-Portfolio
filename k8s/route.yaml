@@ -1,0 +1,7 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata: { name: saintgits-web, namespace: saintgits }
+spec:
+  to: { kind: Service, name: saintgits-web }
+  port: { targetPort: http }
+  tls: { termination: edge, insecureEdgeTerminationPolicy: Redirect }

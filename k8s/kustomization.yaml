@@ -1,0 +1,15 @@
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - serviceaccount-rbac.yaml
+  - deployment.yaml
+  - service-pdb.yaml
+  - hpa.yaml
+  - networkpolicy.yaml
+  - ingress.yaml
+  - route.yaml
+  - servicemonitor.yaml
+images:
+  - name: ghcr.io/OWNER/saintgits-portfolio
+    newName: ghcr.io/OWNER/saintgits-portfolio
+    newTag: latest

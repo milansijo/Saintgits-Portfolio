@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: saintgits-web
+  namespace: saintgits
+  labels: { app.kubernetes.io/name: saintgits-web }
+spec:
+  selector: { app.kubernetes.io/name: saintgits-web }
+  ports: [{ name: http, port: 80, targetPort: http }]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: { name: saintgits-web, namespace: saintgits }
+spec:
+  minAvailable: 2
+  selector: { matchLabels: { app.kubernetes.io/name: saintgits-web } }

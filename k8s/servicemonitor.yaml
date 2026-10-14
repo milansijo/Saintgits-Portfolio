@@ -1,0 +1,6 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata: { name: saintgits-web, namespace: saintgits, labels: { app.kubernetes.io/name: saintgits-web } }
+spec:
+  selector: { matchLabels: { app.kubernetes.io/name: saintgits-web } }
+  endpoints: [{ port: http, path: /healthz, interval: 30s }]

@@ -1,0 +1,12 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata: { name: saintgits-contact-interest, namespace: saintgits }
+spec:
+  template:
+    metadata: { annotations: { autoscaling.knative.dev/minScale: "1", autoscaling.knative.dev/maxScale: "10" } }
+    spec:
+      containers:
+        - image: ghcr.io/OWNER/saintgits-contact-interest:latest
+          env:
+            - name: CONTACT_WEBHOOK_URL
+              valueFrom: { secretKeyRef: { name: saintgits-runtime, key: CONTACT_WEBHOOK_URL } }

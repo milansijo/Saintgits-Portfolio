@@ -1,0 +1,10 @@
+{
+  "title": "Saintgits Web Overview",
+  "schemaVersion": 39,
+  "panels": [
+    {"type":"stat","title":"Available replicas","targets":[{"expr":"sum(kube_deployment_status_replicas_available{namespace=\"saintgits\",deployment=\"saintgits-web\"})"}]},
+    {"type":"timeseries","title":"CPU utilization","targets":[{"expr":"sum(rate(container_cpu_usage_seconds_total{namespace=\"saintgits\",pod=~\"saintgits-web-.*\"}[5m]))"}]},
+    {"type":"timeseries","title":"Memory working set","targets":[{"expr":"sum(container_memory_working_set_bytes{namespace=\"saintgits\",pod=~\"saintgits-web-.*\"})"}]},
+    {"type":"stat","title":"HPA desired replicas","targets":[{"expr":"kube_horizontalpodautoscaler_status_desired_replicas{namespace=\"saintgits\",horizontalpodautoscaler=\"saintgits-web\"}"}]}
+  ]
+}
