@@ -30,7 +30,7 @@ spec:
               podAffinityTerm: { topologyKey: kubernetes.io/hostname, labelSelector: { matchLabels: { app.kubernetes.io/name: saintgits-web } } }
       containers:
         - name: web
-          image: ghcr.io/OWNER/saintgits-portfolio:latest
+          image: ghcr.io/milansijo/saintgits-portfolio:latest
           imagePullPolicy: IfNotPresent
           ports: [{ name: http, containerPort: 8080 }]
           envFrom: [{ configMapRef: { name: saintgits-web-config } }, { secretRef: { name: saintgits-runtime, optional: true } }]

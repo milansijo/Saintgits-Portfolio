@@ -1,0 +1,122 @@
+# OpenShift Console import bundle for the saintgits project.
+# Prerequisites: create project saintgits and the saintgits-runtime Secret first.
+# Review the Deployment image before importing.
+
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: saintgits-web-config, namespace: saintgits }
+data:
+  APP_ENV: production
+  CONTACT_FUNCTION_URL: /api/contact-interest
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: saintgits-web, namespace: saintgits }
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: { name: saintgits-web, namespace: saintgits }
+rules: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: { name: saintgits-web, namespace: saintgits }
+subjects: [{ kind: ServiceAccount, name: saintgits-web, namespace: saintgits }]
+roleRef: { kind: Role, name: saintgits-web, apiGroup: rbac.authorization.k8s.io }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: saintgits-web
+  namespace: saintgits
+  labels: { app.kubernetes.io/name: saintgits-web }
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector: { matchLabels: { app.kubernetes.io/name: saintgits-web } }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: saintgits-web }
+      annotations: { prometheus.io/scrape: "true", prometheus.io/port: "8080", prometheus.io/path: "/healthz" }
+    spec:
+      serviceAccountName: saintgits-web
+      automountServiceAccountToken: false
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector: { matchLabels: { app.kubernetes.io/name: saintgits-web } }
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm: { topologyKey: kubernetes.io/hostname, labelSelector: { matchLabels: { app.kubernetes.io/name: saintgits-web } } }
+      containers:
+        - name: web
+          image: ghcr.io/milansijo/saintgits-portfolio:latest
+          imagePullPolicy: IfNotPresent
+          ports: [{ name: http, containerPort: 8080 }]
+          envFrom: [{ configMapRef: { name: saintgits-web-config } }, { secretRef: { name: saintgits-runtime, optional: true } }]
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          resources:
+            requests: { cpu: 100m, memory: 64Mi }
+            limits: { cpu: 500m, memory: 128Mi }
+          startupProbe: { httpGet: { path: /healthz, port: http }, failureThreshold: 30, periodSeconds: 2 }
+          readinessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 5, timeoutSeconds: 2 }
+          livenessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 10, timeoutSeconds: 2 }
+          volumeMounts: [{ name: nginx-cache, mountPath: /var/cache/nginx }, { name: nginx-run, mountPath: /var/run }]
+      volumes: [{ name: nginx-cache, emptyDir: {} }, { name: nginx-run, emptyDir: {} }]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: saintgits-web
+  namespace: saintgits
+  labels: { app.kubernetes.io/name: saintgits-web }
+spec:
+  selector: { app.kubernetes.io/name: saintgits-web }
+  ports: [{ name: http, port: 80, targetPort: http }]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: { name: saintgits-web, namespace: saintgits }
+spec:
+  minAvailable: 2
+  selector: { matchLabels: { app.kubernetes.io/name: saintgits-web } }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: { name: saintgits-web, namespace: saintgits }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: saintgits-web }
+  minReplicas: 3
+  maxReplicas: 10
+  behavior:
+    scaleUp: { stabilizationWindowSeconds: 0, policies: [{ type: Percent, value: 100, periodSeconds: 60 }] }
+    scaleDown: { stabilizationWindowSeconds: 300, policies: [{ type: Percent, value: 25, periodSeconds: 60 }] }
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 65 } }
+    - type: Resource
+      resource: { name: memory, target: { type: Utilization, averageUtilization: 75 } }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: saintgits-web, namespace: saintgits }
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: saintgits-web } }
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{ namespaceSelector: {} }]
+      ports: [{ protocol: TCP, port: 8080 }]
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata: { name: saintgits-web, namespace: saintgits }
+spec:
+  to: { kind: Service, name: saintgits-web }
+  port: { targetPort: http }
+  tls: { termination: edge, insecureEdgeTerminationPolicy: Redirect }
